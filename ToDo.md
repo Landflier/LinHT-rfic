@@ -1,0 +1,23 @@
+﻿# ToDo List
+
+- [ ] add GitHub action for checking license headers
+    - https://github.com/aesc-silicon/ElemRV/blob/main/.github/workflows/license-check.yaml
+    - https://github.com/aesc-silicon/ElemRV/blob/main/REUSE.toml
+- [ ] Tutorial: link SPARX for EMS with PALACE
+- [ ] `ngspice` & `verilog` RTL Co-Simulation using `Xschem`: https://www.youtube.com/watch?v=PPd7jkcHOgA
+- [ ] Link Harald's UCD workshop video: https://ic3.ie/resources/open-source-ic-design-day
+- [ ] double check make build-all --> do not simulate (only build) macros.
+- [ ] finish targets_overview.drawio
+- [ ] add PF SimulatePARALLEL testbench
+- [ ] add VACASK testbenches
+- [ ] save markdown report of CACE
+- [ ] update table "Folder" column width
+- [ ] add exercise-solution branch and finish the exercises there
+- [ ] adjust fill density on top-level: 0.75 (M1), 0.75 (M2), 0.75 (M3), 0.75 (M4), 0.75 (M5), 2.0 (TM1), 2.0 (TM2) --> fix KLayout DRC filler errors
+- [ ] add custom LibreLane step for filler insertion after ArtistIC added logo
+- [ ] add custom LibreLane step for power estimation (counter macro & top-level)
+- [ ] add GDSFill to `config.yaml`
+- [ ] finish ToDos in main Makefile
+- [ ] see [TinyWhisper Chip ToDo.md](https://github.com/iic-jku/TinyWhisper/blob/main/ToDo.md)
+- [ ] RTL Co-Simulation using `SpiceBind`
+- [ ] build same template for sky130A, gf180mcuD and ihp-sg13cmos5l
