@@ -61,14 +61,12 @@
 │  ├─ 📁 plot_simulations/
 │  │  ├─ 📁 data/
 │  │  ├─ 📁 figures/
-│  │  ├─ ngspice2python.py
-│  │  ├─ plot_inverter.py
-│  │  └─ plot_inverter_top.py
+│  │  ├─ plot_inverter.gp
+│  │  └─ plot_inverter_top.gp
 │  ├─ 📁 sizing/
-│  │  ├─ 📁 data/
 │  │  ├─ 📁 figures/
-│  │  ├─ lookup_commands.ipynb
-│  │  └─ sizing_inverter.ipynb
+│  │  ├─ lookup_commands.py
+│  │  └─ sizing_inverter.py
 │  ├─ reorder_spice_pins.py
 │  └─ lay2img.py
 ├─ 📁 testbenches/
@@ -136,6 +134,23 @@ The Makefile defines a `_GDS_EXT` variable that auto-selects the layout file ext
   - `render-gds`
 
 
+## Analytical Sizing
+
+Runs the plain-Python gm/ID sizing script (`scripts/sizing/sizing_inverter.py`, uses [pygmid](https://github.com/dreoilin/pygmid)):
+
+```sh
+make sizing
+```
+
+Pass `SIZING_ARGS=--draw` to additionally re-render the schematic drawing into `scripts/sizing/figures/` (requires schemdraw):
+
+```sh
+make sizing SIZING_ARGS=--draw
+```
+
+The SG13G2 gm/ID lookup tables (`sg13g2_{lv,hv}_{nmos,pmos}.mat`) are shared repo-wide in `<repo>/scripts/sizing/data/` — macros do not carry their own copies. `scripts/sizing/lookup_commands.py` is a runnable tour of the pygmid lookup API.
+
+
 ## Run Xschem Testbench Simulation
 
 Runs a single Xschem testbench in batch mode (no display): saves the schematic, exports the netlist to `testbenches/xschem/simulations/`, and runs the simulator. The testbench name **must** be specified via the `TB` variable:
@@ -158,16 +173,16 @@ All available testbench schematics are located in `testbenches/xschem/`. Generat
 
 ## Plot Xschem Simulation Results
 
-Plots simulation results using the Python script selected by `CELL`:
+Renders simulation result plots using the gnuplot script selected by `CELL`. The scripts run headless — no windows are opened; SVG + PDF figures are written to `scripts/plot_simulations/figures/`:
 
 ```sh
 make sim-view-xschem [CELL=<cellname>]
 ```
 
-The target runs:
-- `python3 scripts/plot_simulations/plot_<CELL>.py`
+The target runs (from `scripts/plot_simulations/`):
+- `gnuplot plot_<CELL>.gp`
 
-`CELL` defaults to `inverter_top`, so running without `CELL` uses `plot_inverter_top.py`.
+`CELL` defaults to `inverter_top`, so running without `CELL` uses `plot_inverter_top.gp`.
 
 Examples:
 
@@ -176,6 +191,8 @@ make sim-view-xschem
 make sim-view-xschem CELL=inverter_top
 make sim-view-xschem CELL=inverter
 ```
+
+Each script reads the ngspice `wrdata` exports from `scripts/plot_simulations/data/`. Derived metrics shown in the plots (DC gain, f_cu, f_T) are interpolated from the exported data; design-relevant numbers should be computed in the ngspice control blocks (`meas`, `deriv()`, ...) of the testbenches.
 
 
 ## CACE Simulations
@@ -209,6 +226,7 @@ Runs all simulation steps in sequence:
 - `make sim-xschem TB=inverter_tb_tran`
 - `make sim-xschem TB=inverter_tb_dc_vout`
 - `make sim-xschem TB=inverter_top_tb_tran`
+- `make sim-view-xschem CELL=inverter` and `CELL=inverter_top`
 - `make sim-cace`
 
 Invoke with:
@@ -218,9 +236,9 @@ make sim-all
 ```
 
 > [!NOTE]
-> The `sim-view-xschem` target is intentionally **not** called by `sim-all`.
-> It opens the generated Python figures, which blocks the shell until the window is closed.
-> They are designed for interactive use and must be called manually after the simulation has completed.
+> `sim-view-xschem` is included in `sim-all`: the gnuplot scripts run headless
+> (no windows), so the figures in `scripts/plot_simulations/figures/` are
+> regenerated automatically after every simulation run.
 
 
 ## Build Top Cell

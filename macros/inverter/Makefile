@@ -31,6 +31,7 @@ XSCHEM_TB_DIR   := testbenches/xschem
 LAY_DIR         := layout
 SCRIPTS_DIR     := scripts
 SIM_PLOT_DIR    := scripts/plot_simulations
+SIZING_DIR      := scripts/sizing
 GDS_DIR         := final/gds
 LEF_DIR         := final/lef
 LIB_DIR         := final/lib
@@ -58,6 +59,13 @@ help: ## Show this help message
 # ================================================================================================
 
 
+# Sizing Target
+sizing: ## Run the analytical (gm/ID) sizing script (usage: make sizing [SIZING_ARGS=--draw])
+	cd $(SIZING_DIR) && python3 sizing_inverter.py $(SIZING_ARGS)
+.PHONY: sizing
+# ================================================================================================
+
+
 # Simulation Targets
 # Testbench name for sim-xschem target (required: make sim-xschem TB=<testbenchname>)
 TB ?= $(error TB is not set. Usage: make sim-xschem TB=<testbenchname>)
@@ -71,8 +79,8 @@ sim-xschem: ## Run TB simulation with Xschem (usage: make sim-xschem TB=<testben
 	' $(TB).sch
 .PHONY: sim-xschem
 
-sim-view-xschem: ## Plot Xschem simulation results (usage: make sim-view-xschem CELL=<cellname>)
-	python3 $(SIM_PLOT_DIR)/plot_$(CELL).py
+sim-view-xschem: ## Render Xschem simulation result plots with gnuplot into scripts/plot_simulations/figures/ (usage: make sim-view-xschem CELL=<cellname>)
+	cd $(SIM_PLOT_DIR) && gnuplot plot_$(CELL).gp
 .PHONY: sim-view-xschem
 
 sim-cace: ## Run CACE simulations and collect result plots
@@ -102,8 +110,8 @@ sim-all: ## Simulate the macro
 	$(MAKE) sim-xschem TB=inverter_tb_tran
 	$(MAKE) sim-xschem TB=inverter_tb_dc_vout
 	$(MAKE) sim-xschem TB=inverter_top_tb_tran
-#	$(MAKE) sim-view-xschem CELL=inverter
-#	$(MAKE) sim-view-xschem CELL=inverter_top
+	$(MAKE) sim-view-xschem CELL=inverter
+	$(MAKE) sim-view-xschem CELL=inverter_top
 	$(MAKE) sim-cace
 .PHONY: sim-all
 # ================================================================================================
