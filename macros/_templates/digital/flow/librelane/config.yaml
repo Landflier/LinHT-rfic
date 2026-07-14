@@ -1,0 +1,94 @@
+meta:
+  version: 3
+  flow: Classic
+  substituting_steps:
+
+    # Magic reports some overlaps which can be ignored
+    Checker.IllegalOverlap: null
+
+    "+OpenROAD.DetailedRouting": "Odb.InsertECOBuffers"
+    "+Odb.InsertECOBuffers": "OpenROAD.DetailedRouting"
+
+DESIGN_NAME: __TOP__
+VERILOG_FILES: ["dir::../../rtl/constants.sv",
+"dir::../../rtl/__CELL__.sv",
+"dir::../../rtl/__TOP__.sv"]
+
+# Enable plugin for better SystemVerilog support
+# USE_SLANG: True
+
+# Layout / Floorplan Rules
+# TODO(__NAME__): size the die area for the design (see doc/design_plan.md §8)
+DIE_AREA: [0, 0, 200, 100]
+PL_TARGET_DENSITY_PCT: 40
+GRT_ALLOW_CONGESTION: true
+RUN_MAGIC_DRC: true
+RUN_CTS: true
+
+# Valid values are AREA 0-3 and DELAY 0-4
+# DELAY 4 = fastest, but largest area
+# AREA 3 = slowest, but smallest area
+SYNTH_STRATEGY: DELAY 4
+# MAX_FANOUT_CONSTRAINT: 6
+# RT_MAX_LAYER: Metal5
+FP_PIN_ORDER_CFG: dir::pin_order.cfg
+FP_PDN_MULTILAYER: false
+FP_SIZING: absolute
+
+# SDC files
+PNR_SDC_FILE: dir::impl.sdc
+SIGNOFF_SDC_FILE: dir::signoff.sdc
+
+# Power / ground nets
+VDD_NETS: ["VDD"]
+GND_NETS: ["VSS"]
+VERILOG_POWER_DEFINE: "USE_POWER_PINS"
+
+# Clock
+# LinHT_IC digital runs at F_XOSC = 32 MHz (doc/design_plan.md §5) -> 31.25 ns
+CLOCK_PORT: clock_i
+CLOCK_NET: clock_i
+CLOCK_PERIOD: 31.25 # in ns == 32 MHz
+
+# Define Standard Cells
+STD_CELL_LIBRARY: sg13g2_stdcell
+
+# Technology LIBs
+LIB:
+  "*_fast_1p32V_m40C":
+    - pdk_dir::libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_fast_1p32V_m40C.lib
+
+  "*_fast_1p65V_m40C":
+    - pdk_dir::libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_fast_1p65V_m40C.lib
+
+  "*_slow_1p08V_125C":
+    - pdk_dir::libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_slow_1p08V_125C.lib
+
+  "*_slow_1p35V_125C":
+    - pdk_dir::libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_slow_1p35V_125C.lib
+
+  "*_typ_1p20V_25C":
+    - pdk_dir::libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_typ_1p20V_25C.lib
+
+  "*_typ_1p50V_25C":
+    - pdk_dir::libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_typ_1p50V_25C.lib
+
+# Corners
+STA_CORNERS:
+  - nom_fast_1p32V_m40C
+  - nom_fast_1p65V_m40C
+  - nom_slow_1p08V_125C
+  - nom_slow_1p35V_125C
+  - nom_typ_1p20V_25C
+  - nom_typ_1p50V_25C
+
+DEFAULT_CORNER: nom_typ_1p50V_25C
+
+# Fix setup violations
+# PL_RESIZER_SETUP_SLACK_MARGIN: 0.60
+# GRT_RESIZER_SETUP_SLACK_MARGIN: 0.55
+
+# Fix hold violations
+GRT_RESIZER_HOLD_SLACK_MARGIN: 0.05
+PL_RESIZER_HOLD_SLACK_MARGIN: 0.1
+PL_RESIZER_HOLD_MAX_BUFFER_PCT: 100
