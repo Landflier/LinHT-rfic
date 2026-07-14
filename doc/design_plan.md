@@ -1,13 +1,11 @@
 # LinHT_IC — Open-Source VHF/UHF IQ Transceiver: Design Plan
 
 **Status:** v0.2 draft (2026-07-13) — for review. Open decisions are collected in [§15](#15-open-decisions-input-needed).
-**Staffing model:** one graduate student, 10–15 h/week, learning the concepts while designing — see §12 for what this implies.
 **Scope:** Complete plan to specify, design, verify, and tape out a simple zero-IF IQ transceiver IC with continuous 2 m ↔ 70 cm coverage in IHP SG13G2, using the OSICD open-source flow this repository is built on.
 
 Related documents:
 - Template chip docs (to be replaced as the design matures): [specifications.md](specifications.md), [pinout.md](pinout.md), [floorplan.md](floorplan.md)
 - Reference literature: `literature/ebouchaud_2021_ds_sx1255_v31book/` (SX1255 datasheet), Razavi *RF Microelectronics* / *CMOS PLLs*, Kundert *Designer's Guide*, *SDR for Engineers*
-- OSICD flow: FSiC2026 "From Idea to Tapeout" (Dorrer/Pretl, JKU) — this repo **is** that template
 
 ---
 
@@ -15,15 +13,14 @@ Related documents:
 
 | Topic | Summary |
 | --- | --- |
-| **What** | Zero-IF "RF-to-bits" IQ transceiver for LinHT — no modem, no MCU, no LoRa, no LVDS |
+| **What** | Zero-IF RF IQ transceiver for LinHT — no modem, no MCU, no LoRa, no LVDS |
 | **Coverage** | 130–520 MHz continuous (2 m → 70 cm), half-duplex TDD, single antenna port pair |
 | **Baseband / converters** | ±250 kHz full performance (±500 kHz reduced-ENOB); RX = 3rd-order 1-bit CT ΣΔ ADC @ 32 MHz; TX = FIR-DAC fed by on-chip digital ΣΔ |
 | **Synthesizer** | Single fractional-N PLL, octave LC VCO 2.08–4.16 GHz, ÷8/÷16 + final ÷2 quadrature (25 % duty); 30.5 Hz step (F_XOSC/2^20, SX1255 semantics) |
 | **Interfaces** | SPI mode 0 (~32 registers, full readback, burst) + simple I2S master, 16-bit I/Q, 125 k–1 MS/s |
 | **Impairment strategy** | RF + digital loopbacks, TX DC trim DACs, digital IQ correction, RC & VCO-band calibration, digital low-IF operation against DC/1/f |
 | **Technology / package** | IHP SG13G2 130 nm BiCMOS Open-PDK; 2.0 × 2.0 mm die target; QFN-32; external 1.5 V + 3.3 V rails (LDOs in rev B) |
-| **Flow** | This repo's OSICD template: Xschem + ngspice/VACASK/Xyce + CACE (PVT/MC) per macro; KLayout/Magic/netgen/kpex verification; LibreLane digital-on-top assembly; analog-on-top full-chip LVS/sim, `make all` sign-off |
-| **Team & pace** | 1 graduate student, 10–15 h/week, learning in the loop (≈ 500–750 h/year) |
+| **Flow** | This repo's OSICD template: Xschem + ngspice/VACASK/Xyce + CACE (PVT/MC) per macro; KLayout/Magic/netgen/kpex verification; LibreLane digital assembly; analog-on-top full-chip LVS/sim, `make all` sign-off |
 | **Strategy** | Two staged tapeouts: **α test chip** (synthesizer + digital core) at month ~12, **β full transceiver** at month ~24 |
 | **Top risks** | Octave VCO tuning range, CT ΣΔ stability vs RC spread, multi-domain padframe/PDN gap in template, fractional spurs, single-designer schedule |
 
@@ -31,14 +28,13 @@ Related documents:
 
 ## 1. Mission and context
 
-Design an open-source **"RF-to-bits" IQ transceiver** for the LinHT handheld: the radio equivalent of the SX1255, but with **continuous frequency coverage from the 2 m band through the 70 cm band**, a **simple I2S digital IQ interface** to the host SoM, and an **SPI control/readback register bank**. All modulation/demodulation (M17, FM, digital voice, etc.) runs on the host — the chip contains **no modem, no MCU, no LoRa, no LVDS**.
+Design an open-source **RF IQ transceiver** for the LinHT handheld: the radio equivalent of the SX1255, but with **continuous frequency coverage from the 2 m band through the 70 cm band**, a **simple I2S digital IQ interface** to the host SoM, and an **SPI control/readback register bank**. 
 
 Guiding principles (inherited from SX1255 and TinyWhisper):
 
-1. **The chip is deliberately dumb.** Analog selectivity is coarse; channel filtering, AGC decisions, and impairment correction live in host software. This minimizes analog risk on first silicon.
-2. **One clock rules everything.** A single TCXO/XTAL reference drives the PLL, the ΣΔ data converters, the digital core, and the I2S bit clock.
-3. **Calibration = observability, not on-chip smarts.** Provide loopback paths and trim DACs; let the host measure and correct.
-4. **Every block is a self-contained macro** in the OSICD template structure, individually simulated (PVT + MC via CACE) and DRC/LVS/PEX-clean before assembly. Digital-on-top assembly (LibreLane), analog-on-top full-chip LVS/simulation without black boxes.
+1. **One clock** A single TCXO/XTAL reference drives the PLL, the ΣΔ data converters, the digital core, and the I2S bit clock.
+2. **Calibration = observability** Provide loopback paths and trim DACs; let the host measure and correct.
+3. **Every block is a self-contained macro** in the OSICD template structure, individually simulated (PVT + MC via CACE) and DRC/LVS/PEX-clean before assembly. Digital-on-top assembly (LibreLane), analog-on-top full-chip LVS/simulation without black boxes.
 
 ---
 
@@ -101,14 +97,14 @@ Primary use case: LinHT handheld, M17 (4FSK, 9 kHz occupied BW), analog FM 12.5/
                             │                                │     │            │
                             ▼                                ▼     │  ┌──────┐  │
                     ┌──[PFD/CP/LF]──[VCO 2.08–4.16G]──[÷2]──[÷1|÷2]┴─[÷2 IQ/25%]│
-                    │        ▲                                      │            │
+                    │       ▲                                      │            │
                     │   [MMD ÷N.f]◄──[MASH-3 ΣΔ 20b]◄──[FRF regs]  │  ┌──────┐  │
-                    │                                               │  │ INT  │  │
+                    │                                              │  │ INT  │  │
    RFO_P ◄─[DRV]◄─[Σ]◄─[I mix]◄─[LPF3]◄─[FIR-DAC I]◄──[ΣΔ mod 3rd]◄┴──┤ CIC+ ├──┼── I2S SDI
    RFO_N ◄        └───[Q mix]◄─[LPF3]◄─[FIR-DAC Q]◄──[ΣΔ mod 3rd]◄────┤ HB   │  │
-                                                                       └──────┘  │
-   SPI (CSN/SCK/MOSI/MISO) ──► [reg bank + sequencer + cal FSMs] ◄── STAT/IRQ    │
-   DIOs: IRQ, PA_EN, SW_CTRL   [RC-cal, VCO band cal, loopbacks]  BCLK/WS ◄──────┘
+                                                                      └──────┘  │
+   SPI (CSN/SCK/MOSI/MISO) ──►[reg bank + sequencer + cal FSMs] ◄── STAT/IRQ    │
+   DIOs: IRQ, PA_EN, SW_CTRL  [RC-cal, VCO band cal, loopbacks]  BCLK/WS ◄──────┘
 ```
 
 ### 4.2 Operating modes
@@ -344,7 +340,7 @@ Chip-level (the de-facto OSICD sign-off, extended):
 
 | Quantity | Value |
 | --- | --- |
-| Weekly availability | 10–15 h (hard cap — coursework comes first) |
+| Weekly availability | 10–15 h (hard cap for single developer) |
 | Yearly budget | ≈ 50 working weeks × 10–15 h = 500–750 h |
 | 24-month envelope | ≈ 1 000–1 500 h |
 | This plan | ≈ 1 320 h (year 1 ≈ 660 h, year 2 ≈ 660 h) ≈ 13 h/wk average — inside the envelope, with the §12.6 levers as slack |
@@ -353,7 +349,6 @@ Three rules keep a first-time designer inside that budget:
 
 1. **Reuse before design.** TinyWhisper's IQ-modulator lineage (inverter-based OTAs, MFB filters, TG passive mixers, 25 % LO), the template's digital/flow infrastructure, and JKU analog-circuit-design course blocks (bias, OTA, bandgap) are starting points, not references — blocks get re-sized, not re-invented.
 2. **Host-side smarts.** No on-chip calibration FSMs: the chip exposes a frequency counter, trim registers, and loopbacks over SPI; VCO band search, RC trim, IQ/DC correction all run as host software (SX1255 philosophy, taken further).
-3. **De-scope levers, not schedule slips** (§12.6). Fixed checkpoints decide what ships; shuttle dates do not move.
 
 ### 12.2 Two staged tapeouts
 
@@ -380,7 +375,7 @@ Three rules keep a first-time designer inside that budget:
 
 ### 12.4 Year 1 month-by-month (α stage)
 
-Each month ≈ 50–65 h. The **Learning track** column is that month's "study first, then apply" material from `literature/` and the template tutorial.
+Each month ≈ 50–65 h. The **Learning track** column is that month's "study first, then apply" material from literature and the template tutorial.
 
 | Mo | Theme | Design work | Learning track | Exit deliverable | ≈ h |
 | --- | --- | --- | --- | --- | --- |
