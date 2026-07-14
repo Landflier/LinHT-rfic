@@ -408,9 +408,20 @@ make build-logos
 ```
 
 
+## Initialize a New Macro
+
+To scaffold a new macro (directory tree, `Makefile`, `README.md`, sizing/plot script skeletons, CACE spec skeleton — or RTL stubs and LibreLane config for digital macros) from the templates in `macros/_templates/`, run:
+
+```sh
+make init-macro MACRO=<name> [TYPE=analog|digital]
+```
+
+`TYPE` defaults to `analog`. The wrapper cell producing the final GDS is `<core>_top`: for `MACRO=rx_fe` the cells are `rx_fe`/`rx_fe_top`; a name that already ends in `_top` (e.g. `MACRO=vco_top`) yields `vco`/`vco_top`. The script prints the next steps; once the macro has content to build, add it to the `MACROS` list in the top-level `Makefile` so `build-macros` includes it.
+
+
 ## Build Macros
 
-To build a specific macro, run the corresponding target from the `Makefile`. To build all currently enabled macros, run:
+To build a specific macro, run `make build-<macroname>` (a generic pattern target that dispatches to the macro's in-tree `make all`). To build all currently enabled macros (the `MACROS` list in the `Makefile`), run:
 
 ```sh
 make build-macros

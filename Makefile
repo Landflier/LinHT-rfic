@@ -82,6 +82,17 @@ init-submodules: ## Initialize and update git submodules (e.g. flow/artistic)
 # ================================================================================================
 
 
+# Macro Initialization Target
+# Macro type for init-macro (analog or digital)
+# Override with: make init-macro MACRO=<name> TYPE=<analog|digital>
+TYPE ?= analog
+
+init-macro: ## Initialize a new macro from macros/_templates/ (usage: make init-macro MACRO=<name> [TYPE=analog|digital])
+	@$(SCRIPTS_DIR)/init_macro.sh "$(MACRO)" "$(TYPE)"
+.PHONY: init-macro
+# ================================================================================================
+
+
 # Simulation Targets
 sim-rtl-cocotb: ## Run RTL simulation of CELL cell with cocotb (usage: make sim-rtl-cocotb [CELL=<cellname>])
 	cd $(COCOTB_DIR) && python3 $(CELL)_tb.py
@@ -227,17 +238,19 @@ build-logos: ## Build the logos in ip/sg13g2_ip__jku/ and ip/sg13g2_ip__jku_name
 	@$(MAKE) -C $(IP_DIR)/sg13g2_ip__jku_names all
 .PHONY: build-logos
 
-build-counter: ## Build the counter macro
-	@$(MAKE) -C $(MACROS_DIR)/counter all
-.PHONY: build-counter
+# Macros enabled for build-macros. Add a macro here once it has content to
+# build; every entry also gets an individual build-<name> target.
+MACROS := counter inverter
+# LinHT_IC macros (doc/design_plan.md §6) — scaffolded, enable as they mature:
+# MACROS += bias_top xo_top vco_top lodiv_top pll_top rx_fe bb_filter
+# MACROS += rx_adc tx_dac tx_fe atest_top digital_core
 
-build-inverter: ## Build the inverter macro
-	@$(MAKE) -C $(MACROS_DIR)/inverter all
-.PHONY: build-inverter
+build-%: ## Build a single macro (usage: make build-<macroname>)
+	@$(MAKE) -C $(MACROS_DIR)/$* all
+.PHONY: $(addprefix build-,$(MACROS))
 
-build-macros: ## Build all enabled macros (counter and inverter)
-	$(MAKE) build-counter
-	$(MAKE) build-inverter
+build-macros: ## Build all enabled macros ($(MACROS))
+	@for m in $(MACROS); do $(MAKE) build-$$m || exit 1; done
 .PHONY: build-macros
 
 # Adds the chip logo and fill structures to the final GDS.

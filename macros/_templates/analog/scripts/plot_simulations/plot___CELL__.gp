@@ -8,9 +8,9 @@
 # metrics such as cut-off frequencies) in the ngspice control block (`meas`,
 # `deriv()`, ...) — this script only draws the exported results.
 #
-# Usage (from scripts/plot_simulations/):
-#   gnuplot plot___CELL__.gp                 # write SVG + PDF into figures/
-#   gnuplot -p -e "view=1" plot___CELL__.gp  # also open interactive window
+# Renders SVG + PDF into figures/ (no interactive windows). Usage (from
+# scripts/plot_simulations/):
+#   gnuplot plot___CELL__.gp
 # or from the macro root:
 #   make sim-view-xschem CELL=__CELL__
 #
@@ -30,7 +30,7 @@ set key top right
 # PLOT = "plot DATA skip 1 using ($1*1e3):2 with lines linewidth 2 linecolor rgb '#0c5da5' title 'v(out)'"
 PLOT = "plot [][0:1] 1/0 title 'TODO(__NAME__): edit plot___CELL__.gp'"
 
-# Render to files, then optionally to an interactive window (view=1)
+# Render to files
 set terminal svg size 900,620 dynamic background rgb 'white'
 set output FIG.'.svg'
 @PLOT
@@ -39,8 +39,4 @@ set terminal pdfcairo size 9,6.2
 set output FIG.'.pdf'
 @PLOT
 
-if (exists("view")) {
-    set terminal qt size 900,620
-    unset output
-    @PLOT
-}
+unset output

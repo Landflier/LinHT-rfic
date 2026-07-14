@@ -81,8 +81,8 @@ sim-xschem: ## Run TB simulation with Xschem (usage: make sim-xschem TB=<testben
 	' $(TB).sch
 .PHONY: sim-xschem
 
-sim-view-xschem: ## Plot Xschem simulation results with gnuplot (usage: make sim-view-xschem CELL=<cellname>)
-	cd $(SIM_PLOT_DIR) && gnuplot -p -e "view=1" plot_$(CELL).gp
+sim-view-xschem: ## Render Xschem simulation result plots with gnuplot into scripts/plot_simulations/figures/ (usage: make sim-view-xschem CELL=<cellname>)
+	cd $(SIM_PLOT_DIR) && gnuplot plot_$(CELL).gp
 .PHONY: sim-view-xschem
 
 sim-cace: ## Run CACE simulations and collect result plots
@@ -101,6 +101,7 @@ sim-all: ## Simulate the macro
 	@echo "TODO(__NAME__): add testbench runs here, e.g.:"
 	@echo "  \$$(MAKE) sim-xschem TB=__CELL___tb_<analysis>"
 #	$(MAKE) sim-xschem TB=__CELL___tb_tran
+#	$(MAKE) sim-view-xschem CELL=__CELL__
 #	$(MAKE) sim-cace
 .PHONY: sim-all
 # ================================================================================================

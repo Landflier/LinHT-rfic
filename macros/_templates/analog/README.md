@@ -70,7 +70,8 @@ characterization, verified layout), see [`macros/inverter/`](../inverter/).
    Testbenches export plot data with ngspice `wrdata` (with `set wr_vecnames`
    and `set wr_singlescale`) into `scripts/plot_simulations/data/`. Derived
    metrics belong in the ngspice control block (`meas`, `deriv()`, ...), not in
-   the plot scripts. View the results with gnuplot:
+   the plot scripts. Render the result plots with gnuplot (headless, SVG + PDF
+   into `scripts/plot_simulations/figures/`):
 
    ```sh
    make sim-view-xschem CELL=__CELL__
