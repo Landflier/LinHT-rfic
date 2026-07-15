@@ -60,7 +60,7 @@ help: ## Show this help message
 
 
 # Sizing Target
-sizing: ## Run the analytical (gm/ID) sizing script (usage: make sizing [SIZING_ARGS=--draw])
+sizing: ## Run the analytical (gm/ID) sizing: reads specs_inverter.py, writes sizing_inverter.md (usage: make sizing [SIZING_ARGS=--draw])
 	cd $(SIZING_DIR) && python3 sizing_inverter.py $(SIZING_ARGS)
 .PHONY: sizing
 # ================================================================================================

@@ -66,7 +66,9 @@
 │  ├─ 📁 sizing/
 │  │  ├─ 📁 figures/
 │  │  ├─ lookup_commands.py
-│  │  └─ sizing_inverter.py
+│  │  ├─ specs_inverter.py       # circuit specifications (edit this)
+│  │  ├─ sizing_inverter.py      # gm/ID equations (make sizing)
+│  │  └─ sizing_inverter.md      # generated report (specs + results)
 │  ├─ reorder_spice_pins.py
 │  └─ lay2img.py
 ├─ 📁 testbenches/
@@ -136,11 +138,13 @@ The Makefile defines a `_GDS_EXT` variable that auto-selects the layout file ext
 
 ## Analytical Sizing
 
-Runs the plain-Python gm/ID sizing script (`scripts/sizing/sizing_inverter.py`, uses [pygmid](https://github.com/dreoilin/pygmid)):
+The specifications live in `scripts/sizing/specs_inverter.py` (plain-Python constants — edit this small file to change VDD, bias, current, L, C_load, or the chosen finger option); the topology equations live in `scripts/sizing/sizing_inverter.py` (uses [pygmid](https://github.com/dreoilin/pygmid) and the shared helpers in `<repo>/scripts/sizing/sizing_common.py`). Run:
 
 ```sh
 make sizing
 ```
+
+This prints the results and (re)writes the committed report [`scripts/sizing/sizing_inverter.md`](scripts/sizing/sizing_inverter.md) — the given specs and the resulting gm/ID sizing, readable directly on GitHub. Iterate by editing `specs_inverter.py` and re-running `make sizing`.
 
 Pass `SIZING_ARGS=--draw` to additionally re-render the schematic drawing into `scripts/sizing/figures/` (requires schemdraw):
 

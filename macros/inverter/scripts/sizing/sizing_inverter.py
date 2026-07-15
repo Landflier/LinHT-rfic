@@ -3,26 +3,36 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 # Description: Analytical (gm/ID) sizing of the inverter macro.
 #
-# Plain Python script (converted from sizing_inverter.ipynb; no Jupyter
-# server needed). Run from this directory:
-#   python3 sizing_inverter.py [--draw]
-# or from the macro root:
+# The specifications live in specs_inverter.py — edit that file, not this
+# one, when they change; this script holds only the topology-specific gm/ID
+# equations. Run from the macro root:
 #   make sizing
+# which prints the results and writes the committed Markdown report
+# scripts/sizing/sizing_inverter.md (specs + computed sizing).
 #
-# --draw additionally re-renders the schematic drawing (requires schemdraw)
-# into figures/. The SG13G2 gm/ID lookup tables (.mat) are shared repo-wide
-# in <repo>/scripts/sizing/data/.
+# Pass --draw (make sizing SIZING_ARGS=--draw) to additionally re-render the
+# schematic drawing (requires schemdraw) into figures/. The SG13G2 gm/ID
+# lookup tables (.mat) are shared repo-wide in <repo>/scripts/sizing/data/.
 # ============================================
 
 # Imports
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
-from pygmid import Lookup as lk
 
-# Shared SG13G2 lookup tables (generated with the pygmid techsweep flow)
-DATA_DIR = Path(__file__).resolve().parents[4] / "scripts" / "sizing" / "data"
+# Shared sizing helpers (Report, load_table, calculate_finger_options)
+REPO_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "sizing"))
+from sizing_common import Report, load_table, calculate_finger_options
+
+# Specifications (plain-Python constants module next to this script)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import specs_inverter as specs
+
+SPECS_FILE = Path(__file__).resolve().parent / "specs_inverter.py"
+REPORT_FILE = Path(__file__).resolve().parent / "sizing_inverter.md"
 FIGURES_DIR = Path(__file__).resolve().parent / "figures"
 # ============================================
 
@@ -86,443 +96,159 @@ def draw_circuit():
     print(f"Saved circuit drawing to {FIGURES_DIR}/inverter_circuit.{{svg,pdf}}")
 
 
-def calculate_finger_options(width1_um, width2_um, target_ratio, min_finger_width=1.0, max_finger_width=20.0, max_options=10, finger_width_step=1.0):
+def size_device(r, tag, table, vgs, vds, i_d, l, gm_id=None):
+    """Size one device from its bias point and drain current.
+
+    Passing gm_id skips the GM_ID lookup (the inverter forces the PMOS to the
+    NMOS inversion level). Returns the operating-point quantities needed for
+    the final-width pass.
     """
-    Calculate practicable finger configurations for two transistors maintaining their width ratio.
-    Finger widths are constrained to multiples of finger_width_step (default: 0.5um).
-    Only returns configurations with an even number of fingers.
-    Both transistors must have the SAME number of fingers.
+    r.section(f"{tag} sizing")
+    r.value(f"Vgs_{tag}", vgs, "V")
+    r.value(f"Vds_{tag}", vds, "V")
 
-    Parameters:
-    -----------
-    width1_um : float
-        Width of first transistor in micrometers (e.g., PMOS)
-    width2_um : float
-        Width of second transistor in micrometers (e.g., NMOS)
-    target_ratio : float
-        Target width ratio (width1 / width2)
-    min_finger_width : float
-        Minimum practical finger width in micrometers (default: 1.0um)
-    max_finger_width : float
-        Maximum practical finger width in micrometers (default: 20.0um)
-    max_options : int
-        Maximum number of options to return (default: 10)
-    finger_width_step : float
-        Step size for finger width in micrometers (default: 1.0um)
+    # Transconductance (gm)
+    if gm_id is None:
+        gm_id = table.lookup("GM_ID", L=l, VGS=vgs, VDS=vds, VSB=0)
+        r.value("gm/ID(L, VGS, VDS, VSB)", float(gm_id), "uS/uA")
+    else:
+        r.value("gm/ID", float(gm_id), "uS/uA", note="same inversion level as the NMOS")
+    gm = i_d * gm_id
+    r.value(f"gm_{tag}", float(gm) * 1e3, "mS")
 
-    Returns:
-    --------
-    list of tuples : (nf, fw1, fw2, actual_ratio, error_percent)
-        nf: number of fingers (same for both transistors)
-        fw1: finger width for transistor 1
-        fw2: finger width for transistor 2
-        List of viable configurations sorted by error and preference
-    """
+    # Output conductance (gds)
+    gm_gds = table.lookup("GM_GDS", L=l, VGS=vgs, VDS=vds, VSB=0)
+    r.value("gm/gds(L, VGS, VDS, VSB)", float(gm_gds))
+    gds = gm / gm_gds
+    r.value(f"gds_{tag}", float(gds) * 1e3, "mS")
 
-    combinations = []
+    # Gate capacitance (Cgg) and transit frequency (fT)
+    gm_cgg = table.lookup("GM_CGG", L=l, VGS=vgs, VDS=vds, VSB=0)
+    cgg = gm / gm_cgg
+    r.value(f"Cgg_{tag}", float(cgg) * 1e15, "fF", note="Cgg = Cgs + Cgb + Cgd")
+    f_t = gm_cgg / (2 * np.pi)
+    r.value(f"f_T_{tag}", float(f_t) * 1e-9, "GHz", note="transit frequency @ current gain = 1")
 
-    # Try different even numbers of fingers
-    # Start from 2 and go up to a reasonable maximum
-    max_nf = int(max(width1_um, width2_um) / min_finger_width) + 2
+    # Width (W)
+    id_w = table.lookup("ID_W", L=l, VGS=vgs, VDS=vds, VSB=0)
+    r.value("ID/W(L, VGS, VDS, VSB)", float(id_w * 1e6), "uA/um")
+    w = i_d / id_w
+    r.value(f"w_{tag}", float(w), "um")
 
-    for nf in range(2, max_nf + 1, 2):  # Only even numbers
-        # Calculate required finger widths for this number of fingers
-        fw1_exact = width1_um / nf
-        fw2_exact = width2_um / nf
+    # Noise
+    sth_gm = table.lookup("STH_GM", GM_ID=gm_id, L=l, VDS=vds, VSB=0)
+    sth = sth_gm * gm
+    r.value("STH(gm/ID, L, VDS, VSB)", float(sth) * 1e24, "pV²/Hz", note="thermal noise PSD at 1 Hz")
+    fco = table.lookup("SFL_STH", GM_ID=gm_id, L=l, VDS=vds, VSB=0)
+    r.value("fco(gm/ID, L, VDS, VSB)", float(fco) * 1e-6, "MHz",
+            note="flicker corner frequency @ flicker noise PSD = thermal noise PSD")
 
-        # Round to nearest finger_width_step
-        fw1 = round(fw1_exact / finger_width_step) * finger_width_step
-        fw2 = round(fw2_exact / finger_width_step) * finger_width_step
+    return {"gm_id": gm_id, "gm_gds": gm_gds, "id_w": id_w, "w": w}
 
-        # Check if both finger widths are within acceptable range
-        if (min_finger_width <= fw1 <= max_finger_width and
-            min_finger_width <= fw2 <= max_finger_width):
 
-            # Calculate actual widths with rounded finger widths
-            actual_width1 = nf * fw1
-            actual_width2 = nf * fw2
-
-            # Calculate actual ratio
-            actual_ratio = actual_width1 / actual_width2
-
-            # Calculate percentage error from target ratio
-            error_percent = abs(actual_ratio - target_ratio) / target_ratio * 100
-
-            # Add to combinations
-            combinations.append((nf, fw1, fw2, actual_ratio, error_percent))
-
-    # Sort by preference: minimize error (but less aggressive), then prefer good finger widths
-    def preference_score(combo):
-        nf, fw1, fw2, actual_ratio, error_percent = combo
-        # Primary: minimize ratio error (less aggressive weight to allow more error)
-        error_score = error_percent * 2  # Reduced from 10 to 2
-        # Secondary: prefer finger widths around 3-8um range
-        width_score1 = abs(fw1 - 5.0)
-        width_score2 = abs(fw2 - 5.0)
-        # Tertiary: prefer fewer fingers
-        finger_score = nf * 0.01
-        return error_score + width_score1 + width_score2 + finger_score
-
-    combinations.sort(key=preference_score)
-
-    return combinations[:max_options]
+def size_at_final_width(r, tag, dev, w):
+    """Re-derive the operating point with the final (finger-quantized) width."""
+    r.section(f"{tag} at final width")
+    i_d = w * dev["id_w"]
+    r.value("i_out", float(i_d) * 1e3, "mA", note=f"i_out = w_{tag} * ID/W")
+    gm = i_d * dev["gm_id"]
+    r.value(f"gm_{tag}", float(gm) * 1e3, "mS")
+    gds = gm / dev["gm_gds"]
+    r.value(f"gds_{tag}", float(gds) * 1e3, "mS")
+    return gm, gds
 
 
 def main():
-    # ============================================
-    # Specifications
-    # ============================================
-    # Supply voltage
-    VDD = 1.5
-
-    # Input common-mode voltage
-    Vcm_in = VDD / 2
-
-    # Output common-mode voltage
-    Vcm_out = VDD / 2
-
-    # Output current
-    i_out = 1.5e-3 / 2
-
-    # Length per inverter type (PMOS and NMOS share the same length within each inverter)
-    # l = 0.13 # minimum length to maximize bandwidth and decrease area, but also increase mismatch and reduce gain
-    # l = 0.5  # tradeoff between gain, bandwidth, area, and mismatch
-    l = 1.0  # higher length to reduce mismatch and increase gain, but also increase area and reduce bandwidth
-
-    # Load capacitance
-    C_load = 10e-12
-
-    # Print Specifications
-    print("=" * 60)
-    print("Specifications:")
-    print("=" * 60)
-    print(f"Supply Voltage (VDD):          {VDD} V")
-    print(f"Input Common-Mode (Vcm_in):    {Vcm_in} V")
-    print(f"Output Common-Mode (Vcm_out):  {Vcm_out} V")
-    print(f"Output Current (i_out):        {i_out*1e3:.2f} mA")
-    print(f"Transistor Length (L):         {l} µm")
-    print(f"Load Capacitance (C_load):     {C_load*1e12:.2f} pF")
-    print("=" * 60)
+    r = Report("inverter", generator=Path(__file__).name)
+    r.specs(SPECS_FILE)
 
     # ============================================
-    # Load SG13G2 Data Tables
+    # Load SG13G2 data tables
     # ============================================
-    lv_nmos = lk(str(DATA_DIR / 'sg13g2_lv_nmos.mat'))
-    lv_pmos = lk(str(DATA_DIR / 'sg13g2_lv_pmos.mat'))
-    # list of parameters: VGS, VDS, VSB, L, W, NFING, ID, VT, GM, GMB, GDS, CGG, CGB, CGD, CGS, CDD, CSS, STH, SFL
-    # if not specified, minimum L, VDS=max(vgs)/2=0.9 and VSB=0 are used
+    lv_nmos = load_table("sg13g2_lv_nmos")
+    lv_pmos = load_table("sg13g2_lv_pmos")
 
     # ============================================
-    # NMOS Sizing
+    # Device sizing at the specified bias point
     # ============================================
-    print("=" * 60)
-    print("NMOS Sizing:")
-    print("=" * 60, "\n")
-
-    # Vgs of NMOS
-    print(f"Bias Voltages:")
-    print("-" * 60)
-    Vgs_NMOS = Vcm_in
-    print(f"Vgs_NMOS = {Vgs_NMOS} V")
-
-    # Vds of NMOS
-    Vds_NMOS = Vcm_out
-    print(f"Vds_NMOS = {Vds_NMOS} V")
-    print("-" * 60 + "\n")
-
-    # Transconductance (gm)
-    print(f"Transconductance (gm):")
-    print("-" * 60)
-    gm_id_NMOS = lv_nmos.lookup("GM_ID", L=l, VGS=Vgs_NMOS, VDS=Vds_NMOS, VSB=0)
-    print(f"gm/ID(L, VGS, VDS, VSB) = {round(float(gm_id_NMOS), 2)} uS/uA")
-    gm_NMOS = i_out * gm_id_NMOS
-    print(f"gm_NMOS = {round(float(gm_NMOS) * 1e3, 2)}mS")
-    print("-" * 60 + "\n")
-
-    # Output Conductance (gds)
-    print(f"Output Conductance (gds):")
-    print("-" * 60)
-    gm_gds_NMOS = lv_nmos.lookup("GM_GDS", L=l, VGS=Vgs_NMOS, VDS=Vds_NMOS, VSB=0)
-    print(f"gm/gds(L, VGS, VDS, VSB) = {round(float(gm_gds_NMOS), 2)}")
-    gds_NMOS = gm_NMOS / gm_gds_NMOS
-    print(f"gds_NMOS = {round(float(gds_NMOS) * 1e3, 2)}mS")
-    print("-" * 60 + "\n")
-
-    # Gate capacitance (Cgg), Cgg = Cgs + Cgb + Cdb
-    print(f"Gate capacitance (Cgg), Cgg = Cgs + Cgb + Cdb:")
-    print("-" * 60)
-    gm_cgg_NMOS = lv_nmos.lookup("GM_CGG", L=l, VGS=Vgs_NMOS, VDS=Vds_NMOS, VSB=0)
-    Cgg_NMOS = gm_NMOS / gm_cgg_NMOS
-    print(f"Cgg_NMOS = {round(float(Cgg_NMOS) * 1e15, 2)}fF")
-    print("-" * 60 + "\n")
-
-    # Transit Frequency (fT) @ current gain = 1
-    print(f"Transit Frequency (fT) @ current gain = 1:")
-    f_T_NMOS = gm_cgg_NMOS / (2 * np.pi)
-    print(f"f_T_NMOS = {round(float(f_T_NMOS) * 1e-9, 2)}GHz")
-    print("-" * 60 + "\n")
-
-    # Width (W)
-    print(f"Width (W):")
-    print("-" * 60)
-    id_w_NMOS = lv_nmos.lookup("ID_W", L=l, VGS=Vgs_NMOS, VDS=Vds_NMOS, VSB=0)
-    print(f"ID/W(L, VGS, VDS, VSB) = {round(float(id_w_NMOS * 1e6), 2)} uA/um")
-    w_NMOS = i_out / id_w_NMOS
-    print(f"w_NMOS = {round(float(w_NMOS), 2)}um")
-    print("-" * 60 + "\n")
-
-    # Thermal Noise PSD at 1Hz (STH)
-    print(f"Thermal Noise PSD at 1Hz (STH):")
-    print("-" * 60)
-    sth_gm = lv_nmos.lookup('STH_GM', GM_ID=gm_id_NMOS, L=l, VDS=Vds_NMOS, VSB=0)
-    sth = sth_gm * gm_NMOS
-    print(f"STH(gm/ID, L, VDS, VSB) = {round(float(sth * 1e24), 2)} pV²/Hz (thermal noise psd at 1 Hz)")
-    print("-" * 60 + "\n")
-
-    # Flicker Corner Frequency (fco)
-    print(f"Flicker Corner Frequency (fco):")
-    print("-" * 60)
-    fco = lv_nmos.lookup('SFL_STH', GM_ID=gm_id_NMOS, L=l, VDS=Vds_NMOS, VSB=0)
-    print(f"fco(gm/ID, L, VDS, VSB) = {round(float(fco * 1e-6), 2)} MHz (flicker corner frequency @ flicker noise PSD = thermal noise PSD)")
-    print("=" * 60)
+    nmos = size_device(r, "NMOS", lv_nmos,
+                       vgs=specs.VCM_IN, vds=specs.VCM_OUT,
+                       i_d=specs.I_OUT, l=specs.L)
+    pmos = size_device(r, "PMOS", lv_pmos,
+                       vgs=specs.VDD - specs.VCM_IN, vds=specs.VDD - specs.VCM_OUT,
+                       i_d=specs.I_OUT, l=specs.L, gm_id=nmos["gm_id"])
 
     # ============================================
-    # PMOS Sizing
+    # Finger configuration
     # ============================================
-    print("=" * 60)
-    print("PMOS Sizing:")
-    print("=" * 60, "\n")
+    r.section("Finger configuration options")
+    w_ratio = pmos["w"] / nmos["w"]
+    r.value("Target w_PMOS", float(pmos["w"]), "um")
+    r.value("Target w_NMOS", float(nmos["w"]), "um")
+    r.value("Target ratio (PMOS/NMOS)", float(w_ratio))
 
-    # Vgs of PMOS
-    print(f"Bias Voltages:")
-    print("-" * 60)
-    Vgs_PMOS = VDD - Vcm_in
-    print(f"Vgs_PMOS = {Vgs_PMOS} V")
-
-    # Vds of PMOS
-    Vds_PMOS = VDD - Vcm_out
-    print(f"Vds_PMOS = {Vds_PMOS} V")
-    print("-" * 60 + "\n")
-
-    # Transconductance (gm)
-    print(f"Transconductance (gm):")
-    print("-" * 60)
-    gm_id_PMOS = gm_id_NMOS # lv_pmos.lookup("GM_ID", L=l, VGS=Vgs_PMOS, VDS=Vds_PMOS, VSB=0)
-    print(f"gm/ID(L, VGS, VDS, VSB) = {round(float(gm_id_PMOS), 2)} uS/uA")
-    gm_PMOS = i_out * gm_id_PMOS
-    print(f"gm_PMOS = {round(float(gm_PMOS) * 1e3, 2)}mS")
-    print("-" * 60 + "\n")
-
-    # Output Conductance (gds)
-    print(f"Output Conductance (gds):")
-    print("-" * 60)
-    gm_gds_PMOS = lv_pmos.lookup("GM_GDS", L=l, VGS=Vgs_PMOS, VDS=Vds_PMOS, VSB=0)
-    print(f"gm/gds(L, VGS, VDS, VSB) = {round(float(gm_gds_PMOS), 2)}")
-    gds_PMOS = gm_PMOS / gm_gds_PMOS
-    print(f"gds_PMOS = {round(float(gds_PMOS) * 1e3, 2)}mS")
-    print("-" * 60 + "\n")
-
-    # Gate capacitance (Cgg), Cgg = Cgs + Cgb + Cdb
-    print(f"Gate capacitance (Cgg), Cgg = Cgs + Cgb + Cdb:")
-    print("-" * 60)
-    gm_cgg_PMOS = lv_pmos.lookup("GM_CGG", L=l, VGS=Vgs_PMOS, VDS=Vds_PMOS, VSB=0)
-    Cgg_PMOS = gm_PMOS / gm_cgg_PMOS
-    print(f"Cgg_PMOS = {round(float(Cgg_PMOS) * 1e15, 2)}fF")
-    print("-" * 60 + "\n")
-
-    # Transit Frequency (fT) @ current gain = 1
-    print(f"Transit Frequency (fT) @ current gain = 1:")
-    f_T_PMOS = gm_cgg_PMOS / (2 * np.pi)
-    print(f"f_T_PMOS = {round(float(f_T_PMOS) * 1e-9, 2)}GHz")
-    print("-" * 60 + "\n")
-
-    # Width (W)
-    print(f"Width (W):")
-    print("-" * 60)
-    id_w_PMOS = lv_pmos.lookup("ID_W", L=l, VGS=Vgs_PMOS, VDS=Vds_PMOS, VSB=0)
-    print(f"ID/W(L, VGS, VDS, VSB) = {round(float(id_w_PMOS * 1e6), 2)} uA/um")
-    w_PMOS = i_out / id_w_PMOS
-    print(f"w_PMOS = {round(float(w_PMOS), 2)}um")
-    print("-" * 60 + "\n")
-
-    # Thermal Noise PSD at 1Hz (STH)
-    print(f"Thermal Noise PSD at 1Hz (STH):")
-    print("-" * 60)
-    sth_gm = lv_pmos.lookup('STH_GM', GM_ID=gm_id_PMOS, L=l, VDS=Vds_PMOS, VSB=0)
-    sth = sth_gm * gm_PMOS
-    print(f"STH(gm/ID, L, VDS, VSB) = {round(float(sth * 1e24), 2)} pV²/Hz (thermal noise psd at 1 Hz)")
-    print("-" * 60 + "\n")
-
-    # Flicker Corner Frequency (fco)
-    print(f"Flicker Corner Frequency (fco):")
-    print("-" * 60)
-    fco = lv_pmos.lookup('SFL_STH', GM_ID=gm_id_PMOS, L=l, VDS=Vds_PMOS, VSB=0)
-    print(f"fco(gm/ID, L, VDS, VSB) = {round(float(fco * 1e-6), 2)} MHz (flicker corner frequency @ flicker noise PSD = thermal noise PSD)")
-    print("=" * 60)
-
-    # PMOS / NMOS Width Ratio
-    w_ratio = w_PMOS / w_NMOS
-    print(f"PMOS/NMOS Width Ratio (W_PMOS/W_NMOS) = {round(float(w_ratio), 2)}")
-
-    # ============================================
-    # Define Widths and Fingers
-    # ============================================
-    print("=" * 60)
-    print('Finger Configuration Options:')
-    print("=" * 60 + "\n")
-
-    # Inverter A
-    print("Inverter A:")
-    print("-" * 60)
-    print(f"Target: PMOS width = {round(float(w_PMOS), 2)}um, NMOS width = {round(float(w_NMOS), 2)}um")
-    print(f"Target ratio (PMOS/NMOS) = {round(float(w_ratio), 2)}")
-    print("-" * 60 + "\n")
-
-    inverter_a_options = calculate_finger_options(
-        round(float(w_PMOS), 2),
-        round(float(w_NMOS), 2),
+    options = calculate_finger_options(
+        round(float(pmos["w"]), 2),
+        round(float(nmos["w"]), 2),
         float(w_ratio),
         min_finger_width=1.0,
         max_finger_width=20.0,
         max_options=10,
-        finger_width_step=1.0
+        finger_width_step=1.0,
     )
 
-    for i, (nf, fw_p, fw_n, actual_ratio, error_pct) in enumerate(inverter_a_options[:5], 1):
-        actual_w_p = nf * fw_p
-        actual_w_n = nf * fw_n
-        print(f"Option {i}:")
-        print(f"  Number of fingers: {nf} (same for both)")
-        print(f"  PMOS: {nf} fingers × {round(fw_p, 2)}um/finger = {round(actual_w_p, 2)}um")
-        print(f"  NMOS: {nf} fingers × {round(fw_n, 2)}um/finger = {round(actual_w_n, 2)}um")
-        print(f"  Actual ratio: {round(actual_ratio, 2)}, Error: {round(error_pct, 2)}%")
-        print("-" * 60 + "\n")
+    r.table(
+        ["Option", "Fingers", "PMOS fw (um)", "PMOS W (um)", "NMOS fw (um)", "NMOS W (um)", "Ratio", "Error (%)"],
+        [(i, nf, f"{fw_p:g}", f"{nf * fw_p:g}", f"{fw_n:g}", f"{nf * fw_n:g}", f"{ratio:.2f}", f"{err:.2f}")
+         for i, (nf, fw_p, fw_n, ratio, err) in enumerate(options[:5], 1)],
+    )
 
-    print("Final Widths for Inverter A:")
-    # Extract values from the selected option (option 4, chosen manually)
-    if inverter_a_options:
-        NF_PMOS, w_NF_PMOS, w_NF_NMOS, _, _ = inverter_a_options[3]
-        w_PMOS = w_NF_PMOS * NF_PMOS
-        print(f"w_PMOS = w_NF_PMOS * NF_PMOS = {round(w_NF_PMOS, 2)}um * {NF_PMOS} = {round(w_PMOS, 2)}um")
+    if not options:
+        r.text("No suitable finger configuration found!")
+        r.write(REPORT_FILE)
+        return
 
-        NF_NMOS = NF_PMOS  # Same number of fingers for both
-        w_NMOS = w_NF_NMOS * NF_NMOS
-        print(f"w_NMOS = w_NF_NMOS * NF_NMOS = {round(w_NF_NMOS, 2)}um * {NF_NMOS} = {round(w_NMOS, 2)}um")
-    else:
-        print("No suitable finger configuration found!")
-    print("=" * 60)
+    r.section("Final widths")
+    nf, fw_p, fw_n, _, _ = options[specs.FINGER_OPTION - 1]
+    w_pmos = fw_p * nf
+    w_nmos = fw_n * nf
+    r.value("Chosen option", specs.FINGER_OPTION, fmt=".0f",
+            note="FINGER_OPTION in specs_inverter.py")
+    r.value("w_PMOS", w_pmos, "um", note=f"{nf} fingers × {fw_p:g} um")
+    r.value("w_NMOS", w_nmos, "um", note=f"{nf} fingers × {fw_n:g} um")
+    r.value("L", specs.L, "um", note="both devices")
 
     # ============================================
-    # NMOS Sizing with final width
+    # Sizing with the final widths
     # ============================================
-    print("=" * 60)
-    print("NMOS Sizing with final width:")
-    print("=" * 60, "\n")
-
-    # Output Current (i_out)
-    print(f"Output Current (i_out):")
-    print("-" * 60)
-    i_out = w_NMOS * id_w_NMOS
-    print(f"Output current with final width: i_out = w_NMOS * ID/W = {round(float(i_out) * 1e3, 2)} mA")
-    print("-" * 60 + "\n")
-
-    # Transconductance (gm)
-    print(f"Transconductance (gm):")
-    print("-" * 60)
-    gm_NMOS = i_out * gm_id_NMOS
-    print(f"gm_NMOS = {round(float(gm_NMOS) * 1e3, 2)}mS")
-    print("-" * 60 + "\n")
-
-    # Output Conductance (gds)
-    print(f"Output Conductance (gds):")
-    print("-" * 60)
-    gds_NMOS = gm_NMOS / gm_gds_NMOS
-    print(f"gds_NMOS = {round(float(gds_NMOS) * 1e3, 2)}mS")
-    print("-" * 60)
-
-    # ============================================
-    # PMOS Sizing with final width
-    # ============================================
-    print("=" * 60)
-    print("PMOS Sizing with final width:")
-    print("=" * 60, "\n")
-
-    # Output Current (i_out)
-    print(f"Output Current (i_out):")
-    print("-" * 60)
-    i_out = w_PMOS * id_w_PMOS
-    print(f"Output current with final width: i_out = w_PMOS * ID/W = {round(float(i_out) * 1e3, 2)} mA")
-    print("-" * 60 + "\n")
-
-    # Transconductance (gm)
-    print(f"Transconductance (gm):")
-    print("-" * 60)
-    gm_PMOS = i_out * gm_id_PMOS
-    print(f"gm_PMOS = {round(float(gm_PMOS) * 1e3, 2)}mS")
-    print("-" * 60 + "\n")
-
-    # Output Conductance (gds)
-    print(f"Output Conductance (gds):")
-    print("-" * 60)
-    gds_PMOS = gm_PMOS / gm_gds_PMOS
-    print(f"gds_PMOS = {round(float(gds_PMOS) * 1e3, 2)}mS")
-    print("-" * 60)
+    gm_n, gds_n = size_at_final_width(r, "NMOS", nmos, w_nmos)
+    gm_p, gds_p = size_at_final_width(r, "PMOS", pmos, w_pmos)
 
     # ============================================
     # Inverter small-signal summary
     # ============================================
-    # Transconductance of inverter
-    print(f"Transconductance of inverter:")
-    print("-" * 60)
-    gm_A = gm_NMOS + gm_PMOS
-    print(f"gm_A = gm_NMOS + gm_PMOS = {round(float(gm_A) * 1e3, 2)}mS")
-    print("-" * 60 + "\n")
-
-    # Output Conductance of inverter
-    print(f"Output Conductance of inverter:")
-    print("-" * 60)
-    gds_A = gds_NMOS + gds_PMOS
-    print(f"gds_A = gds_NMOS + gds_PMOS = {round(float(gds_A) * 1e3, 2)}mS")
-    print("-" * 60 + "\n")
-
-    # Open-Loop Gain (Aol) of inverter
-    print(f"Open-Loop Gain (Aol) of inverter:")
-    print("-" * 60)
-    Aol_A = - gm_A / gds_A
-    print(f"Aol_A = {round(float(Aol_A), 2)} = {round(20 * np.log10(float(abs(Aol_A))), 2)} dB")
-    print("-" * 60 + "\n")
-
-    # Output Resistance (Rout) of inverter
-    print(f"Output Resistance (Rout) of inverter:")
-    print("-" * 60)
-    Rout_A = 1 / gds_A if gds_A != 0 else float('inf')
-    print(f"Rout_A = 1 / gds_A = {round(float(Rout_A), 2)} Ohms")
-    print("-" * 60 + "\n")
-
-    # Open-Loop Cut-Off Frequency (fcu) of inverter
-    print(f"Open-Loop Cut-Off Frequency (fcu) of inverter:")
-    print("-" * 60)
-    fcu_A = 1 / (2 * np.pi * Rout_A * C_load)
-    print(f"fcu_A = 1 / (2 * pi * Rout_A * C_load) = {round(float(fcu_A) * 1e-6, 2)} MHz")
-    print("-" * 60 + "\n")
-
-    # Unity-Gain Frequency (fT) of inverter
-    print(f"Unity-Gain Frequency (fT) of inverter:")
-    print("-" * 60)
-    fT_A = gm_A / (2 * np.pi * C_load)
-    print(f"fT_A = gm_A / (2 * pi * C_load) = {round(float(fT_A) * 1e-6, 2)} MHz")
-    print("=" * 60)
+    r.section("Inverter small-signal summary")
+    gm_a = gm_n + gm_p
+    r.value("gm_A", float(gm_a) * 1e3, "mS", note="gm_A = gm_NMOS + gm_PMOS")
+    gds_a = gds_n + gds_p
+    r.value("gds_A", float(gds_a) * 1e3, "mS", note="gds_A = gds_NMOS + gds_PMOS")
+    aol_a = -gm_a / gds_a
+    r.value("Aol_A", float(aol_a), note=f"= {20 * np.log10(float(abs(aol_a))):.2f} dB")
+    rout_a = 1 / gds_a if gds_a != 0 else float("inf")
+    r.value("Rout_A", float(rout_a), "Ohm", note="Rout_A = 1 / gds_A")
+    fcu_a = 1 / (2 * np.pi * rout_a * specs.C_LOAD)
+    r.value("fcu_A", float(fcu_a) * 1e-6, "MHz", note="open-loop cut-off, 1 / (2π Rout_A C_load)")
+    ft_a = gm_a / (2 * np.pi * specs.C_LOAD)
+    r.value("fT_A", float(ft_a) * 1e-6, "MHz", note="unity-gain frequency, gm_A / (2π C_load)")
 
     # ============================================
-    # Area Estimation
+    # Area estimation
     # ============================================
-    print("=" * 60)
-    print('Inverter - Area Estimation:')
-    print("=" * 60)
+    r.section("Area estimation")
+    area_inverter = w_pmos * specs.L + w_nmos * specs.L
+    r.value("area_inverter", float(area_inverter), "um²", note="w_PMOS·L + w_NMOS·L")
 
-    area_inverter = w_PMOS * l + w_NMOS * l
-    print(f"area_inverter = {round(float(area_inverter), 2)}um^2")
-    print("=" * 60)
+    r.write(REPORT_FILE)
 
 
 # Main Execution
