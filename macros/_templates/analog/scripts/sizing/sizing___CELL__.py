@@ -5,69 +5,69 @@
 # Created: __DATE__
 # Description: Analytical (gm/ID) sizing of the __CELL__ macro.
 #
-# Plain Python script (no Jupyter server needed). Run from this directory:
-#   python3 sizing___CELL__.py
-# or from the macro root:
+# The specifications live in specs___CELL__.py — edit that file, not this
+# one, when they change; this script holds only the topology-specific gm/ID
+# equations. Run from the macro root:
 #   make sizing
+# which prints the results and writes the committed Markdown report
+# scripts/sizing/sizing___CELL__.md (specs + computed sizing).
 #
 # The SG13G2 gm/ID lookup tables (.mat) are shared repo-wide in
 # <repo>/scripts/sizing/data/ — do not copy them into the macro.
-# See macros/inverter/scripts/sizing/sizing_inverter.py for a complete,
-# worked example of this script structure.
+# See macros/inverter/scripts/sizing/ for a complete, worked example of this
+# structure.
 # ============================================
 
 # Imports
+import sys
 from pathlib import Path
 
 import numpy as np
-from pygmid import Lookup as lk
 
-# Shared SG13G2 lookup tables (generated with the pygmid techsweep flow)
-DATA_DIR = Path(__file__).resolve().parents[4] / "scripts" / "sizing" / "data"
+# Shared sizing helpers (Report, load_table, calculate_finger_options)
+REPO_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "sizing"))
+from sizing_common import Report, load_table
+
+# Specifications (plain-Python constants module next to this script)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import specs___CELL__ as specs
+
+SPECS_FILE = Path(__file__).resolve().parent / "specs___CELL__.py"
+REPORT_FILE = Path(__file__).resolve().parent / "sizing___CELL__.md"
 # ============================================
 
 
-# ============================================
-# Specifications
-# ============================================
-# TODO(__NAME__): fill in the block specifications from doc/design_plan.md.
-VDD = 1.5        # Supply voltage (V)
-temp = 27        # Nominal temperature (degC)
-# l = 0.13       # Channel length (um): minimum L maximizes bandwidth, at the
-#                # cost of gain and mismatch
-l = 1.0          # Channel length (um)
+def main():
+    r = Report("__CELL__", generator=Path(__file__).name)
+    r.specs(SPECS_FILE)
 
-print("=" * 60)
-print("__CELL__ - Specifications:")
-print("=" * 60)
-print(f"Supply Voltage (VDD):          {VDD} V")
-print(f"Transistor Length (L):         {l} µm")
-print("=" * 60)
+    # ============================================
+    # Load SG13G2 data tables
+    # ============================================
+    lv_nmos = load_table("sg13g2_lv_nmos")
+    lv_pmos = load_table("sg13g2_lv_pmos")
+    # hv_nmos = load_table("sg13g2_hv_nmos")
+    # hv_pmos = load_table("sg13g2_hv_pmos")
 
+    # ============================================
+    # Sizing
+    # ============================================
+    # TODO(__NAME__): size the devices with gm/ID lookups, e.g.:
+    #
+    # r.section("NMOS sizing")
+    # gm_id = 10                          # chosen inversion level (uS/uA)
+    # gm = ...                            # from the small-signal requirement
+    # id_w = lv_nmos.lookup("ID_W", GM_ID=gm_id, L=specs.L,
+    #                       VDS=specs.VDD / 2, VSB=0)
+    # w = (gm / gm_id) / id_w
+    # r.value("W", float(w), "um")
 
-# ============================================
-# Load SG13G2 Data Tables
-# ============================================
-lv_nmos = lk(str(DATA_DIR / "sg13g2_lv_nmos.mat"))
-lv_pmos = lk(str(DATA_DIR / "sg13g2_lv_pmos.mat"))
-# hv_nmos = lk(str(DATA_DIR / "sg13g2_hv_nmos.mat"))
-# hv_pmos = lk(str(DATA_DIR / "sg13g2_hv_pmos.mat"))
-# List of parameters: VGS, VDS, VSB, L, W, NFING, ID, VT, GM, GMB, GDS, CGG,
-# CGB, CGD, CGS, CDD, CSS, STH, SFL.
-# If not specified: minimum L, VDS = max(vgs)/2 = 0.75 V and VSB = 0 are used.
-# See macros/inverter/scripts/sizing/lookup_commands.py for a tour of the
-# pygmid lookup API.
+    r.text("TODO(__NAME__): implement the sizing calculations.")
+
+    r.write(REPORT_FILE)
 
 
-# ============================================
-# Sizing
-# ============================================
-# TODO(__NAME__): size the devices with gm/ID lookups, e.g.:
-#
-# gm_id = 10                          # chosen inversion level (uS/uA)
-# gm = ...                            # from the small-signal requirement
-# id_w = lv_nmos.lookup("ID_W", GM_ID=gm_id, L=l, VDS=VDD/2, VSB=0)
-# w = (gm / gm_id) / id_w
-# print(f"W = {float(w):.2f} um")
-
-print("TODO(__NAME__): implement the sizing calculations.")
+# Main Execution
+if __name__ == "__main__":
+    main()

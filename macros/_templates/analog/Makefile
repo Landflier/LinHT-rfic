@@ -62,8 +62,8 @@ help: ## Show this help message
 
 
 # Sizing Target
-sizing: ## Run the analytical (gm/ID) sizing script
-	cd $(SIZING_DIR) && python3 sizing___CELL__.py
+sizing: ## Run the analytical (gm/ID) sizing: reads specs___CELL__.py, writes sizing___CELL__.md
+	cd $(SIZING_DIR) && python3 sizing___CELL__.py $(SIZING_ARGS)
 .PHONY: sizing
 # ================================================================================================
 

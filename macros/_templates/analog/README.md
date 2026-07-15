@@ -34,7 +34,7 @@ characterization, verified layout), see [`macros/inverter/`](../inverter/).
 │  └─ 📁 xschem/                # __CELL__.sch/.sym, __TOP__.sch/.sym, xschemrc
 ├─ 📁 scripts/
 │  ├─ 📁 plot_simulations/      # gnuplot scripts (+ data/, figures/)
-│  ├─ 📁 sizing/                # analytical gm/ID sizing (plain Python)
+│  ├─ 📁 sizing/                # specs___CELL__.py + sizing___CELL__.py + generated sizing___CELL__.md report
 │  ├─ lay2img.py
 │  └─ reorder_spice_pins.py
 ├─ 📁 testbenches/
@@ -50,12 +50,20 @@ characterization, verified layout), see [`macros/inverter/`](../inverter/).
 
 ## Typical Workflow
 
-1. **Sizing** — edit `scripts/sizing/sizing___CELL__.py` (plain Python, uses the
-   shared gm/ID tables in `<repo>/scripts/sizing/data/`), then run:
+1. **Sizing** — fill in the specifications in `scripts/sizing/specs___CELL__.py`
+   (plain-Python constants; derived values like `VCM = VDD / 2` are fine) and
+   the topology equations in `scripts/sizing/sizing___CELL__.py` (uses the
+   shared gm/ID tables in `<repo>/scripts/sizing/data/` and the helpers in
+   `<repo>/scripts/sizing/sizing_common.py`), then run:
 
    ```sh
    make sizing
    ```
+
+   This prints the results and (re)writes the committed report
+   `scripts/sizing/sizing___CELL__.md`, so the given specs and the resulting
+   gm/ID sizing stay visible to anyone browsing or copying the macro. Iterate
+   by editing `specs___CELL__.py` and re-running `make sizing`.
 
 2. **Schematic entry** — draw `__CELL__.sch` / `__TOP__.sch` (+ symbols) in
    `schematic/xschem/` with Xschem.
