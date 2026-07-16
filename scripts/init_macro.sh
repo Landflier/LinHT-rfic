@@ -60,7 +60,7 @@ TOP="${CELL}_top"
 
 DESIGNER="$(git -C "$REPO_ROOT" config user.name 2>/dev/null || true)"
 DESIGNER="${DESIGNER:-TODO}"
-DATE="$(date +'%B %-d, %Y')"
+DATE="$(LC_ALL=C date +'%B %-d, %Y')"
 
 cp -r "$TPL_ROOT/$TYPE" "$DST"
 

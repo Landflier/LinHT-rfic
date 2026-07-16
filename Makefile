@@ -93,6 +93,21 @@ init-macro: ## Initialize a new macro from macros/_templates/ (usage: make init-
 # ================================================================================================
 
 
+# Submodule Initialization Target
+# A submodule is a sub-block cell inside an existing macro (e.g. a latch
+# inside a DAC). It lives in the parent macro's directory tree and is driven
+# through the parent Makefile's per-cell targets (CELL=<subcell>).
+# Pass TYPE only to override; by default it is auto-detected from the parent.
+ifeq ($(origin TYPE),command line)
+_SUB_TYPE = "$(TYPE)"
+endif
+
+init-submodule: ## Initialize a submodule cell inside an existing macro (usage: make init-submodule MACRO=<macro> SUB=<subcell> [TYPE=analog|digital])
+	@$(SCRIPTS_DIR)/init_submodule.sh "$(MACRO)" "$(SUB)" $(_SUB_TYPE)
+.PHONY: init-submodule
+# ================================================================================================
+
+
 # Simulation Targets
 sim-rtl-cocotb: ## Run RTL simulation of CELL cell with cocotb (usage: make sim-rtl-cocotb [CELL=<cellname>])
 	cd $(COCOTB_DIR) && python3 $(CELL)_tb.py
