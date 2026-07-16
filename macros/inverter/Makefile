@@ -60,8 +60,13 @@ help: ## Show this help message
 
 
 # Sizing Target
-sizing: ## Run the analytical (gm/ID) sizing: reads specs_inverter.py, writes sizing_inverter.md (usage: make sizing [SIZING_ARGS=--draw])
-	cd $(SIZING_DIR) && python3 sizing_inverter.py $(SIZING_ARGS)
+# Cell whose specs/sizing scripts to run (default: the core cell).
+# Submodules created with 'make init-submodule' get their own pair.
+# Override with: make sizing SIZING_CELL=<cellname>
+SIZING_CELL ?= inverter
+
+sizing: ## Run the analytical (gm/ID) sizing: reads specs_$(SIZING_CELL).py, writes sizing_$(SIZING_CELL).md (usage: make sizing [SIZING_CELL=<cellname>] [SIZING_ARGS=--draw])
+	cd $(SIZING_DIR) && python3 sizing_$(SIZING_CELL).py $(SIZING_ARGS)
 .PHONY: sizing
 # ================================================================================================
 
