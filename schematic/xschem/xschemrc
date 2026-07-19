@@ -10,8 +10,8 @@ if { ![info exists env(PDK_ROOT)] } {
   }
 }
 
-# Set default PDK
-if { ![info exists env(PDK)] } {
+# Set default PDK (fall back if env points to a PDK that is not installed)
+if { ![info exists env(PDK)] || ![file isdir [file join $env(PDK_ROOT) $env(PDK)]] } {
   set ::env(PDK) ihp-sg13g2
 }
 
@@ -43,6 +43,7 @@ if {![llength [info commands append_xschem_library_path_unique]]} {
 append_xschem_library_path_unique [file dirname [info script]]
 append_xschem_library_path_unique [file join [file dirname [info script]] ../../testbenches/xschem]
 
-# Source project xschemrc
-source [file dirname [info script]]/../../macros/inverter/schematic/xschem/xschemrc
-source [file dirname [info script]]/../../macros/counter/schematic/xschem/xschemrc
+# Symbol libraries of all project macros
+foreach dir [glob -nocomplain -directory [file join [file dirname [info script]] ../../macros] */schematic/xschem] {
+  append_xschem_library_path_unique $dir
+}
