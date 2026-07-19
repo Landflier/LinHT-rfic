@@ -47,3 +47,6 @@ append_xschem_library_path_unique [file join [file dirname [info script]] ../../
 foreach dir [glob -nocomplain -directory [file join [file dirname [info script]] ../../macros] */schematic/xschem] {
   append_xschem_library_path_unique $dir
 }
+
+# Shared template sheet and frame.sym live in macros/_templates
+append_xschem_library_path_unique [file join [file dirname [info script]] ../../macros/_templates]

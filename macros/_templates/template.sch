@@ -20,41 +20,19 @@ v {xschem version=3.4.8RC file_version=1.3
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 }
 G {}
-K {type=logo
-template="name=l1 author=\\"Vasil Yordanov\\" rev=1.0 lock=false"
-verilog_ignore=true
-vhdl_ignore=true
-spice_ignore=true
-tedax_ignore=true
-}
+K {}
 V {}
 S {}
 F {}
 E {}
-L 4 192.5 0 1715 0 {}
-L 4 0 0 32.5 0 {}
-L 4 2095 -1215 2095 0 {}
-L 4 0 -1215 1715 -1215 {}
-L 4 0 -1215 0 0 {}
-L 4 1435 -80 1435 0 {}
-L 4 1435 -80 2095 -80 {}
-L 4 1435 -40 2095 -40 {}
-L 4 1750 -40 1750 0 {}
-L 4 1750 -80 1750 -40 {}
-L 4 1605 -40 1605 0 {}
-L 4 1715 -0 2095 -0 {}
-L 4 1710 -1215 2095 -1215 {}
-P 5 19 70 -7.5 67.5 -5 62.5 0 67.5 5 73.75 11.25 77.5 15 73.75 15 70 15 67.5 15 65 12.5 62.5 10 57.5 5 52.5 10 50 12.5 47.5 15 45 15 41.25 15 37.5 15 41.25 11.25 {fill=true
-bezier=1}
-T {@time_last_modified} 1755 -30 0 0 0.4 0.4 {}
-T {@author} 1440 -70 0 0 0.4 0.4 {}
-T {Page @page of @pages} 1440 -30 0 0 0.4 0.4 {}
-T {@title} 1755 -60 0 0 0.3 0.3 {vcenter=true}
-T {Rev. @rev} 1610 -30 0 0 0.4 0.4 {}
-T {SCHEM} 77.5 -12.5 0 0 0.5 0.5 {}
-T {Desription
-
-A short description of the circuit } 1525 -1205 0 0 0.4 0.4 {}
+C {frame.sym} 0 0 0 0 {name=l1
+author="Vasil Yordanov"
+rev=1.0
+title="untitled"
+page=1
+pages=1
+description="A short description of the circuit"
+lock=false}
 C {code.sym} 10 -130 0 0 {name=Libs_Xyce
 simulator=xyce
 only_toplevel=false
@@ -65,7 +43,7 @@ value="tcleval(
 .lib $::SG13G2_MODELS_XYCE/cornerRES.lib res_typ
 .lib $::SG13G2_MODELS_XYCE/cornerDIO.lib dio_typ
 )"}
-C {code.sym} 1350 -1180 0 0 {name=SPICE only_toplevel=false 
+C {code.sym} 1350 -1180 0 0 {name=SPICE only_toplevel=false
 value="
 .temp 27
 .param vin=0
@@ -81,11 +59,11 @@ value="
 .lib cornerDIO.lib dio_tt
 "}
 C {devices/launcher.sym} 1490 -215 0 0 {name=h3
-descr="OP annotate" 
+descr="OP annotate"
 tclcommand="xschem annotate_op"
 }
 C {devices/launcher.sym} 1490 -165 0 0 {name=h4
-descr="Load waves" 
+descr="Load waves"
 tclcommand="
 xschem raw_read $netlist_dir/[file rootname [file tail [xschem get current_name]]].raw dc
 xschem setprop rect 2 0 fullxzoom
@@ -97,7 +75,7 @@ tclcommand="
 # Setup the default simulation commands if not already set up
 # for example by already launched simulations.
 set_sim_defaults
-puts $sim(spice,1,cmd) 
+puts $sim(spice,1,cmd)
 
 # Change the Xyce command. In the spice category there are currently
 # 5 commands (0, 1, 2, 3, 4). Command 3 is the Xyce batch
@@ -134,7 +112,7 @@ set sim(spice,default) 3
 xschem netlist
 simulate
 "}
-C {code.sym} 1230 -1180 0 0 {name=XYCE only_toplevel=false 
+C {code.sym} 1230 -1180 0 0 {name=XYCE only_toplevel=false
 value="
 .preprocess replaceground true
 .option temp=27

@@ -47,6 +47,9 @@ append_xschem_library_path_unique [file join [file dirname [info script]] ../../
 foreach dir [glob -nocomplain -directory [file join [file dirname [info script]] ../../..] */schematic/xschem] {
   append_xschem_library_path_unique $dir
 }
+# Shared template sheet and frame.sym live in macros/_templates
+append_xschem_library_path_unique [file join [file dirname [info script]] ../../.. _templates]
+
 # Open the shared project template sheet when xschem starts without a file
 set _template_sch [file normalize [file join [file dirname [info script]] ../../.. _templates/template.sch]]
 if {[file exists $_template_sch]} {
