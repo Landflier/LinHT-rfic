@@ -42,3 +42,8 @@ if {![llength [info commands append_xschem_library_path_unique]]} {
 # Add current directory to xschem library path
 append_xschem_library_path_unique [file join [file dirname [info script]] ../../schematic/xschem]
 append_xschem_library_path_unique [file dirname [info script]]
+# Open the shared project template sheet when xschem starts without a file
+set _template_sch [file normalize [file join [file dirname [info script]] ../../.. _templates/template.sch]]
+if {[file exists $_template_sch]} {
+  set XSCHEM_START_WINDOW $_template_sch
+}
