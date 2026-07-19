@@ -10,8 +10,8 @@ if { ![info exists env(PDK_ROOT)] } {
   }
 }
 
-# Set default PDK
-if { ![info exists env(PDK)] } {
+# Set default PDK (fall back if env points to a PDK that is not installed)
+if { ![info exists env(PDK)] || ![file isdir [file join $env(PDK_ROOT) $env(PDK)]] } {
   set ::env(PDK) ihp-sg13g2
 }
 
@@ -42,3 +42,14 @@ if {![llength [info commands append_xschem_library_path_unique]]} {
 # Add current directory to xschem library path
 append_xschem_library_path_unique [file join [file dirname [info script]] ../../schematic/xschem]
 append_xschem_library_path_unique [file dirname [info script]]
+
+# IHP SG13CMOS5L device and stdcell symbols
+if {[file isdir $env(PDK_ROOT)/ihp-sg13cmos5l/libs.tech/xschem]} {
+  append_xschem_library_path_unique $env(PDK_ROOT)/ihp-sg13cmos5l/libs.tech/xschem/sg13cmos5l_pr
+  append_xschem_library_path_unique $env(PDK_ROOT)/ihp-sg13cmos5l/libs.tech/xschem/sg13cmos5l_stdcells
+}
+
+# Symbol libraries of all project macros
+foreach dir [glob -nocomplain -directory [file join [file dirname [info script]] ../../..] */schematic/xschem] {
+  append_xschem_library_path_unique $dir
+}
