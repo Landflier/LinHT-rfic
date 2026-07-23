@@ -1,0 +1,6 @@
+# VACASK configuration for IHP SG13CMOS5L (ported from ngspice models).
+# Requires env vars: LINHT_ROOT (repo root), PDK_ROOT (dir with ihp-sg13cmos5l).
+# Copy to $HOME or the VACASK run dir, or point VACASK at it.
+[Paths]
+include_path_prefix = [ "$(LINHT_ROOT)/models/vacask/ihp-sg13cmos5l/models" ]
+module_path_prefix = [ "$(PDK_ROOT)/ihp-sg13cmos5l/libs.tech/ngspice/osdi" ]

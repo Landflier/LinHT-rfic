@@ -1,0 +1,18 @@
+// Converted from IHP SG13CMOS5L PDK (Ngspice) for VACASK
+// Disable SOA checks
+parameters swsoa=0
+// OSDI files
+load "mosvar.osdi"
+load "psp103.osdi"
+load "psp103_nqs.osdi"
+load "r3_cmc.osdi"
+load "spice/capacitor.osdi"
+load "spice/diode.osdi"
+load "spice/full/bjt.osdi"
+load "spice/inductor.osdi"
+load "spice/resistor.osdi"
+
+// Default models
+model sg13cmos5l_default_mod_c sp_capacitor
+model sg13cmos5l_default_mod_l sp_inductor
+model sg13cmos5l_default_mod_r sp_resistor

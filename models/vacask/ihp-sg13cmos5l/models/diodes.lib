@@ -1,0 +1,113 @@
+// Converted from IHP SG13CMOS5L PDK (Ngspice) for VACASK
+
+//*#######################################################################
+//*
+//* Copyright 2023 IHP PDK Authors
+//* 
+//* Licensed under the Apache License, Version 2.0 (the "License");
+//* you may not use this file except in compliance with the License.
+//* You may obtain a copy of the License at
+//* 
+//*    https://www.apache.org/licenses/LICENSE-2.0
+//* 
+//* Unless required by applicable law or agreed to in writing, software
+//* distributed under the License is distributed on an "AS IS" BASIS,
+//* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//* See the License for the specific language governing permissions and
+//* limitations under the License.
+//*
+//*#######################################################################
+       
+model darea sp_diode ( 
+  tnom=27 is=2.315e-019 n=1.009 ik=1.434e-007 rs=2.193e+005 cj0=9.371e-016
+  m=0.3036 vj=0.696 fc=0.5 bv=11.64 ibv=3.458e-007 tcv=0.001 nbv=48.9
+  isr=7.413e-019 xti=5.039 trs=0 trs2=0 tt=7.009e-007
+)
+model dperim sp_diode ( 
+  tnom=27 is=3.851e-021 n=1.022 rs=1.688e+006 ik=7.838e-008 isr=1.011e-017 xti=3
+  bv=31.86 ibv=6.115e-014 nbv=112.1 cj=1.821e-017 m=0.01923 vj=0.598
+  tt=7.009e-007
+)
+model dcorner sp_diode ( 
+  tnom=27 is=6.502e-021 n=1 rs=4.857e+005 ik=1e-006 isr=0 xti=3 bv=11.64
+  ibv=3.458e-007 cj=0 m=0.5 vj=0.7
+)
+model dparea sp_diode ( 
+  tnom=27 is=8.569e-020 n=1.003 ik=2.957e-007 rs=1.728e+005 cj=8.252e-016
+  m=0.3171 vj=0.6628 fc=0.5 bv=12.14 ibv=1e-006 tcv=0.001 nbv=11.85
+  isr=2.421e-019 xti=4.56 trs=0 trs2=0 tt=1e-012
+)
+model dpperim sp_diode ( 
+  tnom=27 is=1.186e-020 n=1.006 rs=1.577e+006 ik=2.158e-008 isr=7.211e-018
+  xti=4.118 bv=27.26 ibv=1.832e-011 nbv=32.47 cj=3.657e-017 m=0.1512 vj=0.5241
+  tt=1e-012
+)
+model dpcorner sp_diode ( 
+  tnom=27 is=6.965e-021 n=1 rs=4.734e+005 ik=1.19e-008 isr=0 xti=3 cj=0 m=0.5
+  vj=0.7
+)
+
+
+//**************************************
+//* Device: dantenna
+//* Testfield: T262
+//* Technology: IHP SG13S technologies
+//* Lot: AWL403#A
+//* Wafer: 19
+//* Chip: 4,7
+//* Segment: S350B
+//* DUTs: D1 (area), D2 (perimeter) and D4 (corners)
+//* Temperature range: -40°C ... +125°C
+//* DC range: -15V ... 1V
+//* Date: 05.03.2013
+//* 24.03.2015 WW area dependency and temperature dependency 
+//* for dantenna and dpantenna break down updated
+//* Remarks: model is designed for reverse direction of the diodes
+//*          NO statistics
+//*          initial model
+//*  DEV_A = area of the diode in um*umnew
+//*  DEV_P = perimeter of the diode in um
+//*  DEV_C = number of corners (default=4)
+//*************************************
+
+subckt dantenna(1 2)
+//*subckt dantenna (bn C)
+//*                (anode  cathode)
+//*      (substrate/pWell  NSD)
+parameters l=780n w=780n dev_a=(l*w)/1p dev_p=(l+w)/0.5u dev_c=4
+d1 (1 2) darea  area=dev_a
+d2 (1 2) dperim  area=dev_p
+d3 (1 2) dcorner  area=dev_c
+ends
+
+//**************************************
+//* Device: dpantenna
+//* Testfield: T262
+//* Technology: IHP SG13S technologies
+//* Lot: AWL403#A
+//* Wafer: 19
+//* Chip: 4,7
+//* Segment: S351B
+//* DUTs: D1 (area), D2 (perimeter) and D4 (corners)
+//* Temperature range: -40°C ... +125°C
+//* DC range: -15V ... 1V
+//* Date: 05.03.2013
+//* Remarks: model is designed for reverse direction of the diodes
+//*          bipolar effect in forward direction is NOT modeled
+//*          NO statistics
+//*          initial model
+//*  DEV_A = area of the diode in um*um
+//*  DEV_P = perimeter of the diode in um
+//*  DEV_C = number of corners (default=4)
+//*************************************
+
+subckt dpantenna(1 2)
+//*              (PSD  nWell)
+//*             (anode  cathode)
+parameters l=780n w=780n dev_a=(l*w)/1p dev_p=(l+w)/0.5u dev_c=4
+d1 (1 2) dparea  area=dev_a
+d2 (1 2) dpperim  area=dev_p
+d3 (1 2) dpcorner  area=dev_c
+ends
+
+
