@@ -32,7 +32,7 @@ title="untitled"
 page=1
 pages=1
 description="A short description of the circuit"
-lock=false}
+lock=true}
 C {code.sym} 10 -130 0 0 {name=Libs_Xyce
 simulator=xyce
 only_toplevel=false
@@ -57,6 +57,17 @@ value="
 .lib cornerHBT.lib hbt_typ
 .lib cornerRES.lib res_typ
 .lib cornerDIO.lib dio_tt
+"}
+C {simulator_commands.sym} 250 -130 0 0 {name=Libs_Vacask
+simulator=vacask
+only_toplevel=false
+value="
+include \\"sg13g2_vacask_common.lib\\"
+include \\"cornerMOSlv.lib\\" section=mos_tt
+include \\"cornerMOShv.lib\\" section=mos_tt
+include \\"cornerHBT.lib\\" section=hbt_typ
+include \\"cornerRES.lib\\" section=res_typ
+include \\"cornerDIO.lib\\" section=dio_tt
 "}
 C {devices/launcher.sym} 1490 -215 0 0 {name=h3
 descr="OP annotate"
@@ -89,6 +100,9 @@ set sim(spice,default) 0
 file mkdir $netlist_dir
 write_data [save_params] $netlist_dir/[file rootname [file tail [xschem get current_name]]].save
 
+# ngspice uses the spice netlist format
+set netlist_type spice
+
 # run netlist and simulation
 xschem netlist
 simulate
@@ -108,6 +122,31 @@ set sim(spice,3,cmd) \{Xyce -plugin $env(PDK_ROOT)/$env(PDK)/libs.tech/xyce/plug
 # change the simulator to be used (Xyce)
 set sim(spice,default) 3
 
+# Xyce uses the spice netlist format
+set netlist_type spice
+
+# run netlist and simulation
+xschem netlist
+simulate
+"}
+C {launcher.sym} 1490 -365 0 0 {name=h7
+descr=SimulateVACASK
+tclcommand="
+# Setup the default simulation commands if not already set up
+# for example by already launched simulations.
+set_sim_defaults
+
+# In the spectre netlist category, command #0 is VACASK.
+set sim(spectre,default) 0
+
+# VACASK uses the spectre netlist format. ngspice/Xyce use spice, so
+# re-select 'spice' (Options/Netlist format) before running those again.
+set netlist_type spectre
+
+# Create FET/BIP .save file for operating-point annotation
+file mkdir $netlist_dir
+write_data [save_params] $netlist_dir/[file rootname [file tail [xschem get current_name]]].save
+
 # run netlist and simulation
 xschem netlist
 simulate
@@ -117,4 +156,14 @@ value="
 .preprocess replaceground true
 .option temp=27
 .op
+"}
+C {simulator_commands.sym} 1230 -1080 0 0 {name=Script_VACASK
+simulator=vacask
+only_toplevel=false
+value="
+control
+  options temp=27
+  save default
+  analysis op1 op
+endc
 "}

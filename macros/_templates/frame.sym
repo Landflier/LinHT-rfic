@@ -1,7 +1,7 @@
 v {xschem version=3.4.8RC file_version=1.3}
 G {}
 K {type=logo
-template="name=l1 author=\\"Vasil Yordanov\\" rev=1.0 title=\\"untitled\\" page=1 pages=1 description=\\"A short description of the circuit\\" lock=false"
+template="name=l1 author=\\"Vasil Yordanov\\" rev=1.0 title=\\"untitled\\" page=1 pages=1 description=\\"A short description of the circuit\\" lock=true"
 verilog_ignore=true
 vhdl_ignore=true
 spice_ignore=true
