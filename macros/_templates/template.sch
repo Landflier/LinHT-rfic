@@ -33,28 +33,28 @@ page=1
 pages=1
 description="A short description of the circuit"
 lock=true}
-C {code.sym} 10 -130 0 0 {name=Libs_Xyce
+C {simulator_commands.sym} 10 -130 0 0 {name=Libs_Xyce
 simulator=xyce
 only_toplevel=false
 value="tcleval(
 .lib $::SG13G2_MODELS_XYCE/cornerMOSlv.lib mos_tt
 .lib $::SG13G2_MODELS_XYCE/cornerMOShv.lib mos_tt
-.lib $::SG13G2_MODELS_XYCE/cornerHBT.lib hbt_typ
 .lib $::SG13G2_MODELS_XYCE/cornerRES.lib res_typ
 .lib $::SG13G2_MODELS_XYCE/cornerDIO.lib dio_typ
 )"}
-C {code.sym} 1350 -1180 0 0 {name=SPICE only_toplevel=false
+C {simulator_commands.sym} 1230 -1150 0 0 {name=SPICE
+simulator=ngspice
+only_toplevel=false
 value="
 .temp 27
 .param vin=0
 "}
-C {code.sym} 130 -130 0 0 {name=Libs_Ngspice
+C {simulator_commands.sym} 130 -130 0 0 {name=Libs_Ngspice
 simulator=ngspice
 only_toplevel=false
 value="
 .lib cornerMOSlv.lib mos_tt
 .lib cornerMOShv.lib mos_tt
-.lib cornerHBT.lib hbt_typ
 .lib cornerRES.lib res_typ
 .lib cornerDIO.lib dio_tt
 "}
@@ -62,10 +62,9 @@ C {simulator_commands.sym} 250 -130 0 0 {name=Libs_Vacask
 simulator=vacask
 only_toplevel=false
 value="
-include \\"sg13g2_vacask_common.lib\\"
+include \\"sg13cmos5l_vacask_common.lib\\"
 include \\"cornerMOSlv.lib\\" section=mos_tt
 include \\"cornerMOShv.lib\\" section=mos_tt
-include \\"cornerHBT.lib\\" section=hbt_typ
 include \\"cornerRES.lib\\" section=res_typ
 include \\"cornerDIO.lib\\" section=dio_tt
 "}
@@ -100,8 +99,8 @@ set sim(spice,default) 0
 file mkdir $netlist_dir
 write_data [save_params] $netlist_dir/[file rootname [file tail [xschem get current_name]]].save
 
-# ngspice uses the spice netlist format
-set netlist_type spice
+# ngspice uses the spice netlist format (update internal state, not just the Tcl var)
+xschem set netlist_type spice
 
 # run netlist and simulation
 xschem netlist
@@ -122,8 +121,8 @@ set sim(spice,3,cmd) \{Xyce -plugin $env(PDK_ROOT)/$env(PDK)/libs.tech/xyce/plug
 # change the simulator to be used (Xyce)
 set sim(spice,default) 3
 
-# Xyce uses the spice netlist format
-set netlist_type spice
+# Xyce uses the spice netlist format (update internal state, not just the Tcl var)
+xschem set netlist_type spice
 
 # run netlist and simulation
 xschem netlist
@@ -136,12 +135,17 @@ tclcommand="
 # for example by already launched simulations.
 set_sim_defaults
 
-# In the spectre netlist category, command #0 is VACASK.
+# In the spectre netlist category, command #0 is VACASK. --extra-tomlfile adds
+# the repo's SG13CMOS5L .vacaskrc.toml (include=ported models, module=PDK OSDI)
+# so 'include sg13cmos5l_vacask_common.lib' resolves. LINHT_ROOT is exported by
+# the xschemrc; PDK_ROOT comes from sak-pdk.
+set sim(spectre,0,cmd) \{vacask --extra-tomlfile \\"$env(LINHT_ROOT)/models/vacask/ihp-sg13cmos5l/.vacaskrc.toml\\" \\"$N\\"\}
 set sim(spectre,default) 0
 
-# VACASK uses the spectre netlist format. ngspice/Xyce use spice, so
-# re-select 'spice' (Options/Netlist format) before running those again.
-set netlist_type spectre
+# Switch the *internal* netlist type. simulate reads [xschem get netlist_type]
+# (not the Tcl var), so 'set netlist_type' alone would netlist as spectre but
+# still run ngspice. 'xschem set' updates both. NGSPICE/Xyce switch it back.
+xschem set netlist_type spectre
 
 # Create FET/BIP .save file for operating-point annotation
 file mkdir $netlist_dir
@@ -151,13 +155,15 @@ write_data [save_params] $netlist_dir/[file rootname [file tail [xschem get curr
 xschem netlist
 simulate
 "}
-C {code.sym} 1230 -1180 0 0 {name=XYCE only_toplevel=false
+C {simulator_commands.sym} 1110 -1150 0 0 {name=XYCE
+simulator=xyce
+only_toplevel=false
 value="
 .preprocess replaceground true
 .option temp=27
 .op
 "}
-C {simulator_commands.sym} 1230 -1080 0 0 {name=Script_VACASK
+C {simulator_commands.sym} 1350 -1150 0 0 {name=Script_VACASK
 simulator=vacask
 only_toplevel=false
 value="
