@@ -23,3 +23,18 @@ sim_build/
 /macros/*/testbenches/xschem/simulations
 /macros/*/flow/final
 /.llm/
+
+# editor swap files
+*.swp
+*.swo
+
+# raw simulation data dumps: commit summary plots (svg/pdf), regenerate the
+# raw tables on demand from the design sources via the plot scripts
+/scripts/plot_simulations/data/*
+!/scripts/plot_simulations/data/.gitkeep
+/scripts/plot_simulations/figures/*.csv
+/scripts/plot_simulations/figures/*.txt
+/macros/*/scripts/plot_simulations/data/*
+!/macros/*/scripts/plot_simulations/data/.gitkeep
+/macros/*/scripts/plot_simulations/figures/*.csv
+/macros/*/scripts/plot_simulations/figures/*.txt

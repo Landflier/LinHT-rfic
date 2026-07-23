@@ -1,0 +1,26 @@
+# Standalone .gitignore for the pll_top submodule.
+# Commit summary plots and sign-off reports; regenerate raw sim data on demand.
+
+# editor / python scratch
+*.swp
+*.swo
+*.pyc
+__pycache__/
+
+# transient simulation working dirs (regenerate on demand)
+*.raw
+*.vcd
+*.log
+schematic/xschem/simulations/
+testbenches/xschem/simulations/
+verification/cace/_runs/
+verification/cace/_docs/
+verification/cace/netlist/
+verification/cace/templates/simulations/
+flow/final/
+
+# raw plot data — commit the figures, not the tables
+scripts/plot_simulations/data/*
+!scripts/plot_simulations/data/.gitkeep
+scripts/plot_simulations/figures/*.csv
+scripts/plot_simulations/figures/*.txt
