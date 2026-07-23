@@ -80,6 +80,10 @@ PATCHES = {
     "sg13g2_svaricaphv_mod.lib": [("+ stuac 40", "+ stuac=40")],
     "sg13g2_moshv_mod.lib": [(".param SWSOA = 0", "")],
     "sg13g2_moslv_mod.lib": [(".param SWSOA = 0", "")],
+    # ng2vc mishandles a positional quoted capacitance value
+    # ("C1 c1 c2 'cval'" -> invalid "{cval}=1"). The explicit "C='cval'" form
+    # converts correctly to "c=cval". (Verified with ng2vc on both forms.)
+    "cap_mfringe.lib": [("C1 c1 c2 'cval'", "C1 c1 c2 C='cval'")],
 }
 
 # The parasitic PNP is a plain SPICE Gummel-Poon model (.model ... pnp level=1).

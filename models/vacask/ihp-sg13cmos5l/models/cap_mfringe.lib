@@ -62,6 +62,6 @@
 subckt cap_mfringe(c1 c2)
 parameters w=2.0e-6 l=2.0e-6 mmin=1 mmax=4 cval=((mmin==1?0.67:0.55)+(mmax-mmin)*0.55)*(w*1e6)*(l*1e6)*1e-15
 
-c1 (c1 c2) sg13cmos5l_default_mod_c  {cval}=1
+c1 (c1 c2) sg13cmos5l_default_mod_c  c=cval
 
 ends
