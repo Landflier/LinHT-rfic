@@ -20,6 +20,16 @@ if {![info exists PDK]} {
     source $env(PDK_ROOT)/$env(PDK)/libs.tech/xschem/xschemrc
 }
 
+# Repo root (nearest ancestor containing a 'macros/' dir), exported so VACASK
+# resolves the ported SG13CMOS5L models via models/vacask/ihp-sg13cmos5l/.vacaskrc.toml
+if { ![info exists env(LINHT_ROOT)] } {
+  set _linht_root [file dirname [info script]]
+  while {$_linht_root ne {/} && ![file isdir [file join $_linht_root macros]]} {
+    set _linht_root [file dirname $_linht_root]
+  }
+  set ::env(LINHT_ROOT) $_linht_root
+}
+
 # Append a library path only if not already present.
 if {![llength [info commands append_xschem_library_path_unique]]} {
   proc append_xschem_library_path_unique {path} {
